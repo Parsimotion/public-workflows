@@ -1,0 +1,153 @@
+name: Reusable Release Workflow
+
+on:
+  workflow_call:
+    inputs:
+      prereleaseTag:
+        required: false
+        type: string
+      node-version:
+        type: string
+        default: "8.12.0"
+      bun:
+        type: boolean
+        default: false
+      python:
+        type: boolean
+        default: false
+      build-output-dir:
+        type: string
+        default: "dist"
+      test:
+        type: boolean
+        default: false
+      build:
+        type: boolean
+        default: true
+    secrets:
+      NPM_PUBLISH_TOKEN:
+        required: true
+
+env:
+  NPM_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+
+jobs:
+  buildImage:
+    runs-on: ubuntu-22.04
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+    steps:
+      - name: Setup repository
+        uses: actions/checkout@v3
+
+      - name: Setup node version
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Setup python
+        if: ${{ inputs.python }}
+        run : sudo apt update && sudo apt install python2-minimal
+
+      - name: Setup bun
+        if: ${{ inputs.bun }}
+        uses: oven-sh/setup-bun@v1
+
+      - name: Authenticate with NPM
+        run: echo "//registry.npmjs.org/:_authToken=${{ env.NPM_TOKEN }}" > ~/.npmrc
+
+      - name: Remove node_modules
+        run: rm -rf node_modules
+
+      - name: Install Dependencies
+        if: ${{ !inputs.bun }}
+        run: npm ci
+
+      - name: BUN Install Dependencies
+        if: ${{ inputs.bun }}
+        run: bun install --frozen-lockfile
+
+      - name: BUN Trust pm Dependencies
+        if: ${{ inputs.bun }}
+        run: bun pm trust --all
+        continue-on-error: true
+
+      - name: Build
+        if: ${{ inputs.build }}
+        run: npm run build
+
+      - name: Remove temps
+        run: rm -rf .tmp dist/.git
+
+      - name: Upload artifact
+        if: ${{ inputs.build }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: |
+            ${{ inputs.build-output-dir }}/
+            package.json
+            package-lock.json
+
+  release:
+    runs-on: ubuntu-latest
+    needs: buildImage
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Download build artifact
+        if: ${{ inputs.build }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output
+
+      - name: Setup Node (v22 para releaseteca)
+        uses: actions/setup-node@v3
+        with:
+          node-version: 22
+
+      - name: Authenticate with NPM
+        run: echo "//registry.npmjs.org/:_authToken=${{ env.NPM_TOKEN }}" > ~/.npmrc
+
+      - name: Install releaseteca
+        run: npm install @producteca/releaseteca --no-save
+
+      - name: Configure Git
+        run: |
+          git remote set-url origin https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@producteca.com"
+
+      - name: Set PRERELEASE_TAG (if manual)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          TAG=${{inputs.prereleaseTag }}
+          TAG=${TAG:-alpha}
+
+          # Validar que sea alfanumérico, guiones y puntos (ej: beta, test-1.2)
+          if [[ ! "$TAG" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+            echo "❌ Invalid prereleaseTag: '$TAG'. Must be alphanumeric with optional dots, dashes or underscores."
+            exit 1
+          fi
+
+          echo "✅ Using prerelease tag: $TAG"
+          echo "PRERELEASE_TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Test pre-release
+        if: ${{ inputs.test }}
+        run: echo "PRERELEASE_TAG=test" >> $GITHUB_ENV
+      
+      - name: Release with releaseteca
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+        run: npx releaseteca
