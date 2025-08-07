@@ -119,7 +119,7 @@ jobs:
         run: echo "//registry.npmjs.org/:_authToken=${{ env.NPM_TOKEN }}" > ~/.npmrc
 
       - name: Install releaseteca
-        run: npm install @producteca/releaseteca --no-save
+        run: npm install @producteca/releaseteca@2.0.0-alpha.1 --no-save
 
       - name: Configure Git
         run: |
@@ -151,3 +151,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
         run: npx releaseteca
+
