@@ -122,7 +122,7 @@ jobs:
         run: npm install @producteca/releaseteca --no-save
 
       - name: Install conventionalcommits preset for semantic-release
-        run: npm install conventional-changelog-conventionalcommits
+        run: npm install conventional-changelog-conventionalcommits --no-save
 
       - name: Configure Git
         run: |
@@ -154,4 +154,3 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
         run: npx releaseteca
-
