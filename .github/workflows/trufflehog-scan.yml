@@ -1,74 +1,14 @@
 name: Trufflehog Scan
 
 on:
-  workflow_call:
-    inputs:
-      base-commit:
-        type: string
-        required: true
-      pr-number:
-        type: string
-        required: true
+  pull_request:
+    branches:
+      - main
+      - master
 
 jobs:
   trufflehog-scan:
-    runs-on: ubuntu-latest
-    container:
-      image: productecadev/trufflehog-scanner:v1.1
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      
-      - name: Get commit SHAs in range
-        id: commits
-        run: |
-          git config --global --add safe.directory $(pwd)
-          git log --pretty=format:%H ${{ inputs.base-commit }}..HEAD > commit_shas.txt
-        
-      - name: Run Trufflehog (JSON output)
-        id: scan
-        run: |
-          trufflehog git file://$(pwd) \
-            --since-commit ${{ inputs.base-commit }} \
-            --results=verified,unknown,unverified \
-            --json > trufflehog_output.json
-      
-      - name: Summarize Findings
-        id: summarize
-        run: |
-          # Extraer campos
-          jq -r '[
-            .SourceMetadata.Data.Git.commit,
-            (.SourceMetadata.Data.Git.file // "-"),
-            (.ExtraData.name // .DetectorName)
-          ] | @tsv' trufflehog_output.json > findings.tsv
-      
-          # Filtrar falsos positivos (Raw que son commit SHAs)
-          grep -Fv -f commit_shas.txt findings.tsv > filtered.tsv || true
-      
-          if [ ! -s filtered.tsv ]; then
-            echo "✅ No secrets after filtering, exiting cleanly."
-            exit 0
-          fi
-      
-          # Si quedaron secretos, armamos el summary
-          echo "## 🚨 Trufflehog Secrets Found" > summary.md
-          echo "| Commit | Archivo | Detector |" >> summary.md
-          echo "| ------ | ------- | -------- |" >> summary.md
-          awk -F'\t' '{print "| "$1" | "$2" | "$3" |"}' filtered.tsv >> summary.md
-      
-          # Forzar fallo para que se ejecute el step de comentar
-          exit 1
-  
-      - name: Comment on PR if secrets found
-        if: failure()
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          pr-number: ${{ inputs.pr-number }}
-          file-path: summary.md
-          comment-tag: trufflehog-scan-comment-tag
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    uses: Parsimotion/public-workflows/.github/workflows/trufflehog-scan.yml@main
+    with:
+      pr-number: ${{ github.event.pull_request.number }}
+      base-commit: ${{ github.event.pull_request.base.sha }}
