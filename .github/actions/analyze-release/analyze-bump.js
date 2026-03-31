@@ -34,7 +34,7 @@ for (const entry of commits) {
   const [shaLine, subject, ...bodyLines] = entry.split('\n')
   const body = bodyLines.join('\n')
 
-  const isBreaking = subject.match(/^feat!(\(.+\))?:/) || body.includes('BREAKING CHANGE')
+  const isBreaking = subject.match(/^feat!(\(.+\))?:/) && body.includes('BREAKING CHANGE:')
 
   if (isBreaking) {
     currentLevel = levels.major
