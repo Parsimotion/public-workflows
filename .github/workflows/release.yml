@@ -128,7 +128,17 @@ jobs:
         run: echo "//registry.npmjs.org/:_authToken=${{ env.NPM_TOKEN }}" > ~/.npmrc
 
       - name: Install releaseteca
-        run: npm install @producteca/releaseteca --no-save
+        if: ${{ !inputs.bun }}
+        run: npm install @producteca/releaseteca --no-save && npm list @producteca/releaseteca
+
+      - name: BUN Install releaseteca
+        if: ${{ inputs.bun }}
+        run: bun add @producteca/releaseteca --no-save
+
+      - name: BUN Trust pm Dependencies
+        if: ${{ inputs.bun }}
+        run: bun pm trust --all
+        continue-on-error: true
 
       - name: Configure Git
         run: |
