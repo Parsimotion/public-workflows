@@ -79,6 +79,14 @@ jobs:
         if: ${{ inputs.build }}
         run: npm run build
 
+      - name: Test
+        if: ${{ !inputs.bun }}
+        run: npm run test
+
+      - name: BUN Test
+        if: ${{ inputs.bun }}
+        run: bun run test
+
       - name: Remove temps
         run: rm -rf .tmp dist/.git
 
