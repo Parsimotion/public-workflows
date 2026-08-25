@@ -53,7 +53,7 @@ jobs:
 
       - name: Setup bun
         if: ${{ inputs.bun }}
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
 
       - name: Authenticate with NPM
         run: echo "//registry.npmjs.org/:_authToken=${{ env.NPM_TOKEN }}" > ~/.npmrc
