@@ -44,13 +44,19 @@ runs:
       with:
         node-version: 22
 
-    - name: Run analyze-bump.js
+    - name: Install releaseteca
+      run: |
+        echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+        npm install @producteca/releaseteca --no-save --prefix $RUNNER_TEMP/releaseteca
+      shell: bash
+
+    - name: Run analyze-commits
       id: bump
       run: |
         if [ "${{ steps.get_tag.outputs.found_tag }}" == "false" ]; then
           echo "bump=first_release" >> $GITHUB_OUTPUT
         else
-          BUMP=$(FROM_TAG="${{ steps.get_tag.outputs.last_tag }}" node ${{ github.action_path }}/analyze-bump.js | grep '^Determined bump' | sed 's/^Determined bump: //')
+          BUMP=$(FROM_TAG="${{ steps.get_tag.outputs.last_tag }}" $RUNNER_TEMP/releaseteca/node_modules/.bin/releaseteca-analyze-commits | grep '^Determined bump' | sed 's/^Determined bump: //')
           echo "bump=$BUMP" >> $GITHUB_OUTPUT
         fi
       shell: bash
