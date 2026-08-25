@@ -124,6 +124,10 @@ jobs:
         with:
           node-version: 22
 
+      - name: Setup bun
+        if: ${{ inputs.bun }}
+        uses: oven-sh/setup-bun@v1
+
       - name: Authenticate with NPM
         run: echo "//registry.npmjs.org/:_authToken=${{ env.NPM_TOKEN }}" > ~/.npmrc
 
