@@ -46,6 +46,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: ${{ inputs.node-version }}
+          cache: ${{ !inputs.bun && 'npm' || '' }}
 
       - name: Setup python
         if: ${{ inputs.python }}
