@@ -46,6 +46,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: ${{ inputs.node-version }}
+          cache: ${{ !inputs.bun && 'npm' || '' }}
 
       - name: Setup python
         if: ${{ inputs.python }}
@@ -53,7 +54,7 @@ jobs:
 
       - name: Setup bun
         if: ${{ inputs.bun }}
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
 
       - name: Authenticate with NPM
         run: echo "//registry.npmjs.org/:_authToken=${{ env.NPM_TOKEN }}" > ~/.npmrc
@@ -77,6 +78,14 @@ jobs:
       - name: Build
         if: ${{ inputs.build }}
         run: npm run build
+
+      - name: Test
+        if: ${{ !inputs.bun }}
+        run: npm run test
+
+      - name: BUN Test
+        if: ${{ inputs.bun }}
+        run: bun run test
 
       - name: Remove temps
         run: rm -rf .tmp dist/.git
@@ -115,11 +124,25 @@ jobs:
         with:
           node-version: 22
 
+      - name: Setup bun
+        if: ${{ inputs.bun }}
+        uses: oven-sh/setup-bun@v1
+
       - name: Authenticate with NPM
         run: echo "//registry.npmjs.org/:_authToken=${{ env.NPM_TOKEN }}" > ~/.npmrc
 
       - name: Install releaseteca
-        run: npm install @producteca/releaseteca --no-save
+        if: ${{ !inputs.bun }}
+        run: npm install @producteca/releaseteca --no-save && npm list @producteca/releaseteca
+
+      - name: BUN Install releaseteca
+        if: ${{ inputs.bun }}
+        run: bun add @producteca/releaseteca --no-save
+
+      - name: BUN Trust pm Dependencies
+        if: ${{ inputs.bun }}
+        run: bun pm trust --all
+        continue-on-error: true
 
       - name: Configure Git
         run: |
